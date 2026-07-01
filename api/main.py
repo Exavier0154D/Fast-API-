@@ -1,26 +1,45 @@
 from fastapi import FastAPI
-from api.models.item import Item  # Importación desde tu módulo local
+from api.models.item import Item  # Importación corregida apuntando a la estructura real
 
 app = FastAPI()
 
 fake_items_db = [
-    {"item_name": "Foo", "description": "Un item inicial", "price": 42.0, "tax": 3.2},
-    {"item_name": "Bar", "description": "Otro item", "price": 15.5, "tax": None}
+    {"item_name": "Foo"}, {"item_name": "Bar"}, {"item_name": "Baz"},
+    {"item_name": "Qux"}, {"item_name": "Quux"}, {"item_name": "Corge"},
+    {"item_name": "Grault"}, {"item_name": "Garply"}, {"item_name": "Waldo"},
+    {"item_name": "Fred"}, {"item_name": "Plugh"}, {"item_name": "Xyzzy"}, {"item_name": "Thud"}
 ]
 
+def mimensaje():
+    return "¡Hola, FastAPI!"
+
+# 1. Raíz
 @app.get("/")
-def home():
-    return {"message": "¡Hola, Fast API!"}
+def root():
+    return {"message": mimensaje()}
 
+# 2. Obtener por ID (Parámetro de Ruta)
+@app.get("/items/{item_id}")
+def read_item(item_id: int):
+    return {"item_id": item_id}
 
+# 3. Listar con paginación (Parámetros de Consulta)
+@app.get("/items/")
+def read_items(skip: int = 0, limit: int = 10, q: str | None = None):
+    results = fake_items_db[skip : skip + limit]
+    if q:
+        results.append({"item_name": q})
+    return results
+
+# 4. Crear Item (Cuerpo de la solicitud - Body)
 @app.post("/items/")
 def create_item(item: Item):
     item_dict = item.model_dump()
     if item_dict is not None:
         fake_items_db.append(item_dict)
-    return item_dict
+    return item_dict  # Coma eliminada para retornar JSON puro
 
-
+# 5. Actualizar Item (Ruta + Cuerpo)
 @app.put("/items/{item_name}")
 def update_item(item_name: str, item: Item):
     for i, fake_item in enumerate(fake_items_db):
@@ -29,7 +48,7 @@ def update_item(item_name: str, item: Item):
             return {"item_name": item_name, **item.model_dump()}
     return {"error": "Item not found"}
 
-
+# 6. FUNCIÓN AÑADIDA: Actualizar con Query (Ruta + Cuerpo + Consulta)
 @app.put("/items/{item_name}/query")
 def update_item_with_query(item_name: str, item: Item, q: str | None = None):
     for i, fake_item in enumerate(fake_items_db):
