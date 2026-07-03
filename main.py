@@ -1,5 +1,6 @@
 from fastapi import FastAPI
-from api.models.item import Item  # Importación corregida apuntando a la estructura real
+# Como main.py ahora está en la raíz, busca directamente la carpeta api
+from api.models.item import Item  
 
 app = FastAPI()
 
@@ -37,7 +38,7 @@ def create_item(item: Item):
     item_dict = item.model_dump()
     if item_dict is not None:
         fake_items_db.append(item_dict)
-    return item_dict  # Coma eliminada para retornar JSON puro
+    return item_dict
 
 # 5. Actualizar Item (Ruta + Cuerpo)
 @app.put("/items/{item_name}")
