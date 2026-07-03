@@ -48,7 +48,7 @@ def update_item(item_name: str, item: Item):
             return {"item_name": item_name, **item.model_dump()}
     return {"error": "Item not found"}
 
-# 6. FUNCIÓN AÑADIDA: Actualizar con Query (Ruta + Cuerpo + Consulta)
+# 6. Actualizar con Query (Ruta + Cuerpo + Consulta)
 @app.put("/items/{item_name}/query")
 def update_item_with_query(item_name: str, item: Item, q: str | None = None):
     for i, fake_item in enumerate(fake_items_db):
