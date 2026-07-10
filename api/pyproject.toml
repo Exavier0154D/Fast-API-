@@ -3,7 +3,10 @@ name = "api-xavier"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-   "fastapi[standard]==0.138.2"
+    "fastapi[standard]==0.138.2",
+    "pydantic==2.8.2",
+    "python-dotenv==1.0.1",
+    "supabase==2.5.1"
 ]
 
 [tool.fastapi]
