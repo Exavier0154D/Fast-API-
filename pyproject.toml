@@ -1,15 +1,11 @@
 [project]
 name = "api-xavier"
 version = "0.1.0"
-requires-python = ">=3.12"
+requires-python = "==3.12.*"  # <--- Esto fuerza a usar Python 3.12 en Render
 dependencies = [
-    "fastapi==0.111.0",        
-    "uvicorn[standard]==0.30.1", 
-    "pydantic==2.7.4",
-    "python-dotenv==1.0.1",
+    "fastapi==0.138.2",
+    "pydantic==2.13.4",
+    "python-dotenv==1.2.2",
     "supabase==2.5.1",
-    "requests==2.32.3"         
+    "requests==2.34.2"
 ]
-
-[tool.fastapi]
-entrypoint = "main:app"
