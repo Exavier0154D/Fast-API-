@@ -1,13 +1,23 @@
 [project]
-name = "api-xavier"             # <--- Cambiado a un nombre válido sin guiones finales
+name = "api-xavier"
 version = "0.1.0"
-requires-python = "==3.12.*"    # <--- Bloquea Python 3.12 para que no intente usar 3.14
+requires-python = "==3.12.*"
 dependencies = [
-    "fastapi[standard]==0.138.2",
-    "pydantic==2.13.4",
-    "python-dotenv==1.2.2",
-    "supabase==2.5.1",
-    "requests==2.34.2"
+    "fastapi[standard]",
+    "pydantic",
+    "python-dotenv",
+    "supabase",
+    "requests"            # <-- ¡Súper importante! No olvides requests para el login temporal
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+only-include = [
+    "main.py",
+    "api"                # <-- Cambiado a "api" para que incluya api/models/ y todo tu módulo
 ]
 
 [tool.fastapi]
