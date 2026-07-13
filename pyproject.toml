@@ -1,9 +1,9 @@
 [project]
-name = "api-xavier"
+name = "Fast-API-"
 version = "0.1.0"
-requires-python = "==3.12.*"  # <--- Esto fuerza a usar Python 3.12 en Render
+requires-python = "==3.12.*"
 dependencies = [
-    "fastapi==0.138.2",
+    "fastapi[standard]==0.138.2",  # <-- Agregamos [standard] aquí
     "pydantic==2.13.4",
     "python-dotenv==1.2.2",
     "supabase==2.5.1",
