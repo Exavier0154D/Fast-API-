@@ -3,16 +3,19 @@ from pathlib import Path
 from typing import Annotated
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Form, HTTPException, Response, status
+from fastapi import FastAPI, Form, HTTPException, Response, status, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from supabase import Client, create_client
 
-# Corrección de mayúsculas a minúsculas en el nombre de los archivos .py
+# Importación de tus modelos
 from api.models.task import Task
 from api.models.item import Item
 from api.models.form_data import FormData
 
+# 1. Configuración de rutas y variables de entorno
 BASE_DIR = Path(__file__).resolve().parent
-ruta_real_env = BASE_DIR / "api" / "models" / ".env"
+# Apuntar directamente a la raíz del proyecto para leer el archivo .env
+ruta_real_env = BASE_DIR / ".env"
 load_dotenv(dotenv_path=ruta_real_env)
 
 url = os.getenv("SUPABASE_URL")
@@ -23,6 +26,7 @@ if url is None or key is None:
         "No se encontraron las variables SUPABASE_URL o SUPABASE_PUBLISHABLE_KEY en el archivo .env"
     )
 
+# 2. Inicialización del cliente base de Supabase
 supabase: Client = create_client(url, key)
 
 app = FastAPI(
@@ -30,6 +34,24 @@ app = FastAPI(
     version="1.0.0"
 )
 
+security = HTTPBearer()
+
+# 3. Dependencia para obtener el cliente de Supabase autenticado con el JWT del usuario
+def get_supabase_client(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Client:
+    token = credentials.credentials
+    try:
+        # Creamos un cliente nuevo específico para la petición
+        client = create_client(url, key)
+        # Seteamos el token del usuario para que se aplique el RLS en Supabase
+        client.postgrest.auth(token)
+        return client
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token de Supabase inválido o expirado"
+        )
+
+# Base de datos simulada en memoria
 fake_items_db = [
     {"item_name": "Foo"}, {"item_name": "Bar"}, {"item_name": "Baz"}, 
     {"item_name": "Qux"}, {"item_name": "Quux"}, {"item_name": "Corge"}, 
@@ -49,6 +71,26 @@ def root():
         "message": mimensaje()
     }
 
+
+# --- ENDPOINTS DE AUTENTICACIÓN ---
+
+@app.post("/auth/login-temporal")
+def login_temporal(email: str, password: str):
+    import requests
+    # Endpoint nativo de Supabase Auth
+    auth_url = f"{url}/auth/v1/token?grant_type=password"
+    headers = {"apikey": key, "Content-Type": "application/json"}
+    payload = {"email": email, "password": password}
+
+    response = requests.post(auth_url, json=payload, headers=headers)
+    if response.status_code != 200:
+        raise HTTPException(status_code=400, detail="Credenciales incorrectas en Supabase")
+
+    # Retornamos el access_token (JWT)
+    return {"access_token": response.json().get("access_token")}
+
+
+# --- ENDPOINTS DE ITEMS ---
 
 @app.get("/items/{item_id}")
 def read_item(item_id: int):
@@ -119,23 +161,25 @@ def create_item_form(
     return Response(content=message_str, status_code=201)
 
 
-@app.get("/tasks/")
-def get_tasks():
-    response = (
-        supabase
-        .table("task")
-        .select("*")
-        .execute()
-    )
+# --- ENDPOINTS DE TASKS (CON RLS / AUTENTICACIÓN) ---
 
-    return response.data
+@app.get("/tasks/", status_code=status.HTTP_200_OK)
+def get_tasks(supabase_client: Client = Depends(get_supabase_client)):
+    try:
+        # Usamos el cliente autenticado que inyecta la dependencia Depends
+        response = supabase_client.table("task").select("*").execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al recuperar las tareas desde la base de datos."
+        )
 
 
 @app.get("/tasks/{task_id}")
-def get_task(task_id: int):
-
+def get_task(task_id: int, supabase_client: Client = Depends(get_supabase_client)):
     response = (
-        supabase
+        supabase_client
         .table("task")
         .select("*")
         .eq("id", task_id)
@@ -145,17 +189,16 @@ def get_task(task_id: int):
     if not response.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task no encontrada"
+            detail="Task no encontrada o no tienes permisos de acceso."
         )
 
     return response.data[0]
 
 
 @app.post("/tasks/", status_code=status.HTTP_201_CREATED)
-def create_task(task: Task):
-
+def create_task(task: Task, supabase_client: Client = Depends(get_supabase_client)):
     response = (
-        supabase
+        supabase_client
         .table("task")
         .insert({
             "title": task.title,
@@ -163,15 +206,13 @@ def create_task(task: Task):
         })
         .execute()
     )
-
     return response.data
 
 
 @app.put("/tasks/{task_id}")
-def update_task(task_id: int, task: Task):
-
+def update_task(task_id: int, task: Task, supabase_client: Client = Depends(get_supabase_client)):
     response = (
-        supabase
+        supabase_client
         .table("task")
         .update({
             "title": task.title,
@@ -184,17 +225,16 @@ def update_task(task_id: int, task: Task):
     if not response.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task no encontrada"
+            detail="Task no encontrada o no tienes permisos de edición."
         )
 
     return response.data
 
 
 @app.delete("/tasks/{task_id}")
-def delete_task(task_id: int):
-
+def delete_task(task_id: int, supabase_client: Client = Depends(get_supabase_client)):
     response = (
-        supabase
+        supabase_client
         .table("task")
         .delete()
         .eq("id", task_id)
@@ -204,7 +244,7 @@ def delete_task(task_id: int):
     if not response.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task no encontrada"
+            detail="Task no encontrada o no tienes permisos para eliminarla."
         )
 
     return {
